@@ -5,7 +5,7 @@ Bash script to update a DNS A and AAAA record in a GCP Cloud DNS zone
 with the hosts public IP addresses.
 
 
-It should run in the [Alpine based gcloud container](gcr.io/google.com/cloudsdktool/google-cloud-cli).
+It should run in the [Alpine based gcloud container](https://gcr.io/google.com/cloudsdktool/google-cloud-cli).
 
 
 ## Usage
