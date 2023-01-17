@@ -21,17 +21,14 @@ Name the key file ```service_account.json```
 
 Let the bash script run with the following paramentes:
 
--z [ ZONENAME ]       # The name of the GCP Cloud DNS Zone
-
--d [ DOMAIN ]         # The DOMAIN of the DNS record to update
-
--p [ PROJECT_ID ]     # The GCP Project ID
-
--t [ TTL ]            # The TTL for the records
-
--4 [ UPDATE_V4 ]      # Update the IPv4 address [true/false]
-
--6 [ UPDATE_V6 ]      # Update the IPv6 address [true/false]
+| Parameter         | Description                               |
+|-------------------|-------------------------------------------|
+| -z [ ZONENAME ]   | The name of the GCP Cloud DNS Zone        |
+| -d [ DOMAIN ]     | The DOMAIN of the DNS record to update    |
+| -p [ PROJECT_ID ] | The GCP Project ID                        |
+| -t [ TTL ]        | The TTL for the records                   |
+| -4 [ UPDATE_V4 ]  | Update the IPv4 address [true/false]      |
+| -6 [ UPDATE_V6 ]  | Update the IPv6 address [true/false]      |
 
 ### Example Command
 
