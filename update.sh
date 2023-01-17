@@ -1,11 +1,18 @@
 #!/usr/bin/env bash
 
-# This script will invoke the GCP Cloud Function to update Cloud DNS Zone records
-# It is an implementation variant for DynDNS with GCP Cloud DNS
+# This script will update a DNS A and AAAA record in a GCP Cloud DNS zone
+# with the hosts public IP addresses.
+
+# It should run in the Alpine based gcloud container.
+# URL: gcr.io/google.com/cloudsdktool/google-cloud-cli:alpine
+
+# set default URLs to get IPv4 and IPv6 addresses
+: ${V4_URL:=https://api.ipify.org}
+: ${V6_URL:=https://api6.ipify.org}
 
 usage()
 {
-  echo "Usage: $0 -z [ ZONENAME ] -f [ FQDN ] -u [ FUNCTION_URL ] -t [ TOKEN ]"
+  echo "Usage: $0 -z [ ZONENAME ] -d [ DOMAIN ] -p [ PROJECT_ID ] -t [ TTL ] -4 [ UPDATE_V4 true/false ] -6 [ UPDATE_V6 true/false ]"
   exit 2
 }
 
@@ -24,52 +31,73 @@ set_variable()
 #########################
 # Main script starts here
 
-unset ZONENAME FQDN FUNCTION_URL TOKEN
+unset ZONENAME DOMAIN PROJECT_ID TTL UPDATE_V4 UPDATE_V6
 
-while getopts 'z:f:u:t:' opt
+while getopts 'z:d:p:t:4:6:' opt
 do
   case $opt in
     z) set_variable ZONENAME $OPTARG ;;
-    f) set_variable FQDN $OPTARG ;;
-    u) set_variable FUNCTION_URL $OPTARG ;;
-    t) set_variable TOKEN $OPTARG ;;
+    d) set_variable DOMAIN $OPTARG ;;
+    p) set_variable PROJECT_ID $OPTARG ;;
+    t) set_variable TTL $OPTARG ;;
+    4) set_variable UPDATE_V4 $OPTARG ;;
+    6) set_variable UPDATE_V6 $OPTARG ;;
   esac
 done
 
-[ -z "$ZONENAME" ] || [ -z "$FQDN" ] || [ -z "$FUNCTION_URL" ] || [ -z "$TOKEN" ] && usage
+[ -z "$ZONENAME" ] || [ -z "$DOMAIN" ] || [ -z "$PROJECT_ID" ] || [ -z "$TTL" ] || [ -z "$UPDATE_V4" ] || [ -z "$UPDATE_V6" ] && usage
 
-skip()
-{
-  echo "No IP address changes, skipping."
-  exit 0
+installDig() {
+  apk --update add bind-tools
 }
 
-updateRecords()
-{
-  echo "Invoke GCP Cloud function URL '${FUNCTION_URL}?zoneName=${ZONENAME}&fqdn=${FQDN}&ipv4=${IPV4}&ipv6=$(urlencode ${IPV6})'"
-  curl -s "${FUNCTION_URL}?zoneName=${ZONENAME}&fqdn=${FQDN}&ipv4=${IPV4}&ipv6=$(urlencode ${IPV6})&token=${TOKEN}"
-  exit 0
+login() {
+  gcloud auth activate-service-account \
+    --key-file=service_account.json \
+    --project=${PROJECT_ID}
 }
 
-# get current DNS records for IPv4 and IPv6
+updateV4Records()
+{
+  gcloud dns record-sets update ${DOMAIN} \
+    --rrdatas=${IPV4} \
+    --ttl=${TTL} \
+    --type=A \
+    --zone=${ZONENAME}
+}
 
-echo -n "Get DNS records: "
-A_RECORD=$(dig +short A ${FQDN} | tail -n1)
-AAAA_RECORD=$(dig +short AAAA ${FQDN} | tail -n1)
-echo "done"
+updateV6Records()
+{
+  gcloud dns record-sets update ${DOMAIN} \
+    --rrdatas=${IPV6} \
+    --ttl=${TTL} \
+    --type=AAAA \
+    --zone=${ZONENAME}
+}
 
-# get current IPv4 and IPv6 addresses
+installDig
 
-echo -n "Get IP addresses: "
-IPV4=$(curl -s https://api.ipify.org)
-IPV6=$(curl -s https://api6.ipify.org)
-echo "done"
+login
 
-echo "DNS A Record: ${A_RECORD} ## Current IPv4: ${IPV4}"
-echo "DNS AAAA Record: ${AAAA_RECORD} ## Current IPv6: ${IPV6}"
+[[ "${UPDATE_V4}" == "true" ]] && (
+  echo -n "Get DNS A record: "
+  A_RECORD=$(dig +short A ${DOMAIN} | tail -n1)
+  echo "done"
+  echo -n "Get IPv4 address: "
+  IPV4=$(curl -s ${V4_URL})
+  echo "done"
+  echo "DNS A Record: ${A_RECORD} ## Current IPv4: ${IPV4}"
+  [[ "${A_RECORD}" != "${IPV4}" ]] && updateV4Records || echo "skip IPv4 record update"
+)
 
-# if no change, skip record update
-[[ "${A_RECORD}" == "${IPV4}" ]] && [[ "${AAAA_RECORD}" == "${IPV6}" ]] && skip
 
-# else update records
-updateRecords
+[[ "${UPDATE_V6}" == "true" ]] && (
+  echo -n "Get DNS AAAA record: "
+  AAAA_RECORD=$(dig +short AAAA ${DOMAIN} | tail -n1)
+  echo "done"
+  echo -n "Get IPv6 address: "
+  IPV6=$(curl -s ${V6_URL})
+  echo "done"
+  echo "DNS AAAA Record: ${AAAA_RECORD} ## Current IPv4: ${IPV6}"
+  [[ "${AAAA_RECORD}" != "${IPV6}" ]] && updateV6Records || echo "skip IPv6 record update"
+)
