@@ -98,6 +98,6 @@ login
   echo -n "Get IPv6 address: "
   IPV6=$(curl -s ${V6_URL})
   echo "done"
-  echo "DNS AAAA Record: ${AAAA_RECORD} ## Current IPv4: ${IPV6}"
+  echo "DNS AAAA Record: ${AAAA_RECORD} ## Current IPv6: ${IPV6}"
   [[ "${AAAA_RECORD}" != "${IPV6}" ]] && updateV6Records || echo "skip IPv6 record update"
 )
